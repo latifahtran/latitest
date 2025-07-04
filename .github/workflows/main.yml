@@ -1,0 +1,55 @@
+name: Salary Countdown Reminder
+
+on:
+  schedule:
+    - cron: '00 02 * * 1-5' # 9:00 AM VN = 02:00 AM UTC, only Mon-Fri
+  workflow_dispatch: # cho phép chạy thủ công
+
+jobs:
+  send_reminder:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Send salary countdown
+        run: |
+          python3 <<EOF
+          import datetime
+          import calendar
+          import requests
+          import json
+
+          # === CẤU HÌNH ===
+          webhook_url = "https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=2794daf9-af53-401f-88ac-2e9fa441f137"
+
+          today = datetime.date.today()
+          year = today.year
+          month = today.month
+
+          # Tính ngày cuối tháng
+          last_day = calendar.monthrange(year, month)[1]
+          salary_day = datetime.date(year, month, last_day)
+
+          # Nếu là thứ 7 (5) hoặc CN (6) thì lùi về thứ 6 gần nhất
+          if salary_day.weekday() == 5:
+              salary_day -= datetime.timedelta(days=1)
+          elif salary_day.weekday() == 6:
+              salary_day -= datetime.timedelta(days=2)
+
+          # Không nhắc nếu hôm nay là T7/CN (5/6)
+          if today.weekday() >= 5:
+              exit()
+
+          # Tính số ngày còn lại
+          days_left = (salary_day - today).days
+
+          # Soạn nội dung
+          message = {
+              "msgtype": "text",
+              "text": {
+                  "content": f"{days_left} spam ti nha c"
+              }
+          }
+
+          # Gửi đến WeCom
+          r = requests.post(webhook_url, data=json.dumps(message))
+          print("Status:", r.status_code, r.text)
+          EOF
